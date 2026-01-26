@@ -1,0 +1,2 @@
+# Scraper dependencies
+playwright>=1.40.0
