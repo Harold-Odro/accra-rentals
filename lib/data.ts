@@ -71,17 +71,17 @@ export function estimatePrice(
   const locationOnly = listings.filter(
     (l) => l.location.toLowerCase() === location.toLowerCase() && l.price > 0
   );
-  
+
   if (locationOnly.length === 0) return null;
 
   // Calculate average bedroom count for this location
   const withBedrooms = locationOnly.filter(l => l.bedrooms !== null && l.bedrooms > 0);
-  
+
   if (withBedrooms.length === 0) {
     // No bedroom data at all - just use location prices
     const prices = locationOnly.map((l) => l.price).sort((a, b) => a - b);
     const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-    
+
     return {
       low: Math.round(avg * 0.8),
       average: Math.round(avg),
@@ -91,23 +91,55 @@ export function estimatePrice(
     };
   }
 
-  // Calculate average price per bedroom for this location
-  const totalBedrooms = withBedrooms.reduce((sum, l) => sum + (l.bedrooms || 0), 0);
-  const avgBedroomsInLocation = totalBedrooms / withBedrooms.length;
-  
-  // Get average price
-  const prices = locationOnly.map((l) => l.price);
-  const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-  
-  // Estimate based on bedroom ratio
-  const bedroomRatio = bedrooms / avgBedroomsInLocation;
-  const estimatedPrice = avgPrice * bedroomRatio;
+  // Better approach: Calculate price-per-bedroom and use that to estimate
+  // This gives more realistic results than simple ratio scaling
+
+  // Get all listings with bedroom data across ALL locations for the requested bedroom count
+  const sameBedAllLocations = listings.filter(
+    (l) => l.bedrooms === bedrooms && l.price > 0
+  );
+
+  if (sameBedAllLocations.length > 0) {
+    // Use market-wide average for this bedroom count as baseline
+    const marketAvgForBedroom = sameBedAllLocations.reduce((a, b) => a + b.price, 0) / sameBedAllLocations.length;
+
+    // Calculate location's price premium/discount compared to market
+    const locationAvg = withBedrooms.reduce((a, b) => a + b.price, 0) / withBedrooms.length;
+    const marketAvgForLocationBeds = listings
+      .filter((l) => l.bedrooms !== null && l.bedrooms > 0 && l.price > 0)
+      .reduce((sum, l, _, arr) => sum + l.price / arr.length, 0);
+
+    // Location premium factor (how much more/less expensive is this location vs market)
+    const locationPremium = marketAvgForLocationBeds > 0 ? locationAvg / marketAvgForLocationBeds : 1;
+
+    // Apply location premium to market average for requested bedrooms
+    const estimatedPrice = marketAvgForBedroom * locationPremium;
+
+    // Get price range from same-bedroom listings market-wide
+    const sameBedPrices = sameBedAllLocations.map((l) => l.price).sort((a, b) => a - b);
+    const percentile10 = sameBedPrices[Math.floor(sameBedPrices.length * 0.1)] || sameBedPrices[0];
+    const percentile90 = sameBedPrices[Math.floor(sameBedPrices.length * 0.9)] || sameBedPrices[sameBedPrices.length - 1];
+
+    return {
+      low: Math.round(Math.min(percentile10 * locationPremium, estimatedPrice * 0.85)),
+      average: Math.round(estimatedPrice),
+      high: Math.round(Math.max(percentile90 * locationPremium, estimatedPrice * 1.15)),
+      count: sameBedAllLocations.length,
+      confidence: 'low', // Always low confidence for estimates
+    };
+  }
+
+  // Last resort: Use price-per-bedroom calculation
+  const totalPrice = withBedrooms.reduce((sum, l) => sum + l.price, 0);
+  const totalBeds = withBedrooms.reduce((sum, l) => sum + (l.bedrooms || 0), 0);
+  const pricePerBedroom = totalPrice / totalBeds;
+  const estimatedPrice = pricePerBedroom * bedrooms;
 
   return {
-    low: Math.round(estimatedPrice * 0.85),
+    low: Math.round(estimatedPrice * 0.8),
     average: Math.round(estimatedPrice),
-    high: Math.round(estimatedPrice * 1.15),
-    count: locationOnly.length,
+    high: Math.round(estimatedPrice * 1.2),
+    count: withBedrooms.length,
     confidence: 'low', // Always low confidence for estimates
   };
 }

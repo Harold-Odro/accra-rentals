@@ -65,26 +65,42 @@ export function getRecommendations(
     recommendations.push(...upgrades)
   }
   
-  // 3. Best Deals (below average for the area)
-  const bestDeals = stats
-    .filter(s => {
-      const bedroomPrice = s.priceByBedroom[bedrooms]
-      return bedroomPrice > 0 && 
-             bedroomPrice < s.averagePrice * 0.9 &&
-             bedroomPrice <= budget &&
-             s.location !== preferredLocation
-    })
-    .map(s => ({
-      type: 'best_deal' as const,
-      location: s.location,
-      price: s.priceByBedroom[bedrooms],
-      bedrooms,
-      reason: `Below average price for ${s.location}`,
-      confidence: s.count >= 5 ? 'high' as const : 'medium' as const
-    }))
-    .sort((a, b) => a.price - b.price)
-    .slice(0, 2)
-  
+  // 3. Best Deals (below market average for this bedroom count)
+  // Calculate market-wide average for requested bedroom count
+  const allBedroomPrices = stats
+    .filter(s => s.priceByBedroom[bedrooms] > 0)
+    .map(s => s.priceByBedroom[bedrooms])
+
+  const marketAvgForBedroom = allBedroomPrices.length > 0
+    ? allBedroomPrices.reduce((a, b) => a + b, 0) / allBedroomPrices.length
+    : 0
+
+  const bestDeals = marketAvgForBedroom > 0
+    ? stats
+        .filter(s => {
+          const bedroomPrice = s.priceByBedroom[bedrooms]
+          // Compare to market average for SAME bedroom count (not location's overall average)
+          return bedroomPrice > 0 &&
+                 bedroomPrice < marketAvgForBedroom * 0.85 && // 15% below market average
+                 bedroomPrice <= budget &&
+                 s.location !== preferredLocation
+        })
+        .map(s => {
+          const bedroomPrice = s.priceByBedroom[bedrooms]
+          const savingsVsMarket = marketAvgForBedroom - bedroomPrice
+          return {
+            type: 'best_deal' as const,
+            location: s.location,
+            price: bedroomPrice,
+            bedrooms,
+            reason: `${Math.round((savingsVsMarket / marketAvgForBedroom) * 100)}% below market avg for ${bedrooms}BR`,
+            confidence: s.count >= 5 ? 'high' as const : 'medium' as const
+          }
+        })
+        .sort((a, b) => a.price - b.price)
+        .slice(0, 2)
+    : []
+
   recommendations.push(...bestDeals)
   
   // 4. Budget Stretch Options (if budget allows 10-15% more)
