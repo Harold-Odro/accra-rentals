@@ -109,10 +109,10 @@ export default function PriceEstimator() {
       <div className="rounded-3xl bg-white p-8 shadow-2xl shadow-neutral-900/10 border border-neutral-200">
         <div className="mb-6">
           <h2 className="text-3xl font-display font-bold text-neutral-900 mb-2">
-            Estimate Rental Price
+            Estimate Apartment Rent
           </h2>
           <p className="text-neutral-600">
-            Get accurate price estimates based on real market data
+            Get accurate monthly rent estimates for apartments based on real market data
           </p>
         </div>
 
@@ -254,6 +254,7 @@ export default function PriceEstimator() {
                 <div className="text-sm font-medium text-neutral-600 mb-2">Low</div>
                 <div className="text-3xl font-display font-bold text-neutral-900">
                   {formatPrice(estimate.low)}
+                  <span className="text-sm font-normal text-neutral-500">/month</span>
                 </div>
               </div>
 
@@ -261,6 +262,7 @@ export default function PriceEstimator() {
                 <div className="text-sm font-medium text-white/80 mb-2">Average</div>
                 <div className="text-3xl font-display font-bold text-white">
                   {formatPrice(estimate.average)}
+                  <span className="text-sm font-normal text-white/70">/month</span>
                 </div>
               </div>
 
@@ -268,6 +270,7 @@ export default function PriceEstimator() {
                 <div className="text-sm font-medium text-neutral-600 mb-2">High</div>
                 <div className="text-3xl font-display font-bold text-neutral-900">
                   {formatPrice(estimate.high)}
+                  <span className="text-sm font-normal text-neutral-500">/month</span>
                 </div>
               </div>
             </div>
@@ -310,6 +313,7 @@ export default function PriceEstimator() {
               </div>
               <div className="text-2xl font-display font-bold text-neutral-900">
                 {formatPrice(Math.round(estimate.average / (bedrooms as number)))}
+                <span className="text-sm font-normal text-neutral-500">/month</span>
               </div>
             </div>
 

@@ -38,7 +38,7 @@ export default function HomePage() {
               </h1>
               
               <p className="mx-auto max-w-2xl text-xl text-neutral-300 mb-12 text-balance">
-                Accurate rental price estimates across Accra. Make informed decisions with real market data.
+                Accurate monthly apartment rent estimates across Accra. Make informed decisions with real market data.
               </p>
 
               {/* Tab Switcher */}

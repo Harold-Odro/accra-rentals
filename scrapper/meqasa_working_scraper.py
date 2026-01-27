@@ -78,13 +78,33 @@ def scrape_meqasa_working(output_path=None):
                         title = title_elem.text_content().strip()
                         href = title_elem.get_attribute('href')
 
+                        # Filter for apartments only (skip houses, offices, shops, land, etc.)
+                        title_lower = title.lower()
+                        is_apartment = any(term in title_lower for term in [
+                            'apartment', 'flat', 'studio', 'penthouse', 'duplex',
+                            'condo', 'condominium', 'loft', 'bedsitter', 'chamber and hall'
+                        ])
+                        is_not_apartment = any(term in title_lower for term in [
+                            'house', 'villa', 'mansion', 'townhouse', 'bungalow',
+                            'office', 'shop', 'warehouse', 'land', 'plot', 'store',
+                            'commercial', 'retail', 'industrial'
+                        ])
+
+                        # Skip if it's clearly not an apartment
+                        if is_not_apartment and not is_apartment:
+                            continue
+
+                        # If neither apartment nor non-apartment keywords found, skip to be safe
+                        if not is_apartment:
+                            continue
+
                         # Extract price
                         price_elem = container.query_selector('p.h3')
                         if not price_elem:
                             continue
 
-                        price_text = price_elem.text_content()
-                        price_match = re.search(r'GH₵([\d,]+)', price_text)
+                        price_text = price_elem.text_content().lower()
+                        price_match = re.search(r'GH₵([\d,]+)', price_text, re.IGNORECASE)
                         if not price_match:
                             continue
 
@@ -93,8 +113,23 @@ def scrape_meqasa_working(output_path=None):
                         except:
                             continue
 
-                        if price < 500 or price > 500000:
+                        # Filter for monthly rentals only
+                        # Skip yearly rentals (usually indicated by "/year", "per year", "p.a", "per annum")
+                        is_yearly = any(term in price_text for term in ['/year', 'per year', 'p.a', 'per annum', '/yr', 'yearly'])
+
+                        # Most Meqasa rentals are monthly by default, but verify
+                        is_monthly = any(term in price_text for term in ['/month', 'per month', '/mo', 'monthly', 'p/m'])
+
+                        # If explicitly yearly, skip this listing
+                        if is_yearly:
                             continue
+
+                        # Validate price range for monthly rentals (GH₵500 - GH₵100,000/month is reasonable)
+                        if price < 500 or price > 100000:
+                            continue
+
+                        # Set price period (default to monthly for Meqasa rentals)
+                        price_period = 'month'
 
                         # Extract bedrooms
                         bed_elem = container.query_selector('li.bed span')
@@ -125,7 +160,9 @@ def scrape_meqasa_working(output_path=None):
                         listing = {
                             'title': title,
                             'price': price,
-                            'price_text': f"GH₵{price:,}",
+                            'price_text': f"GH₵{price:,}/month",
+                            'price_period': price_period,
+                            'property_type': 'apartment',
                             'bedrooms': bedrooms,
                             'location': location,
                             'url': full_url or "",
@@ -136,7 +173,7 @@ def scrape_meqasa_working(output_path=None):
 
                         all_listings.append(listing)
                         print(
-                            f"    {len(all_listings):3d}. {location:20s} | {bedrooms if bedrooms else '?'}BR | GH₵{price:,}")
+                            f"    {len(all_listings):3d}. {location:20s} | {bedrooms if bedrooms else '?'}BR | GH₵{price:,}/mo")
 
                     except Exception as e:
                         continue
@@ -174,6 +211,10 @@ def scrape_meqasa_working(output_path=None):
         'scraped_at': datetime.now().isoformat(),
         'total_listings': len(all_listings),
         'source': 'meqasa',
+        'property_type': 'apartments',
+        'price_period': 'monthly',
+        'currency': 'GHS',
+        'currency_symbol': 'GH₵',
         'listings': all_listings
     }
 
@@ -188,12 +229,12 @@ def scrape_meqasa_working(output_path=None):
     print(f"{'='*70}")
 
     prices = [l['price'] for l in all_listings]
-    print(f"\n💰 PRICES")
+    print(f"\n💰 MONTHLY RENT PRICES (Apartments Only)")
     print(f"  Total listings:  {len(all_listings)}")
-    print(f"  Average:    GH₵{sum(prices)/len(prices):>10,.0f}")
-    print(f"  Median:     GH₵{sorted(prices)[len(prices)//2]:>10,}")
-    print(f"  Min:        GH₵{min(prices):>10,}")
-    print(f"  Max:        GH₵{max(prices):>10,}")
+    print(f"  Average:    GH₵{sum(prices)/len(prices):>10,.0f}/month")
+    print(f"  Median:     GH₵{sorted(prices)[len(prices)//2]:>10,}/month")
+    print(f"  Min:        GH₵{min(prices):>10,}/month")
+    print(f"  Max:        GH₵{max(prices):>10,}/month")
 
     locations = [l['location'] for l in all_listings]
     loc_counts = Counter(locations)

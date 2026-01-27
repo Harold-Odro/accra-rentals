@@ -146,10 +146,11 @@ export default function SavedSearches() {
             <div className="space-y-3 mb-4">
               <div className="rounded-xl bg-gradient-to-br from-primary-50 to-accent-50 p-4">
                 <div className="text-sm font-medium text-neutral-600 mb-1">
-                  Average Rent
+                  Average Monthly Rent
                 </div>
                 <div className="text-2xl font-display font-bold text-neutral-900">
                   {formatPrice(search.estimate.average)}
+                  <span className="text-sm font-normal text-neutral-500">/month</span>
                 </div>
               </div>
 
@@ -157,13 +158,13 @@ export default function SavedSearches() {
                 <div>
                   <div className="text-xs text-neutral-500 mb-1">Low</div>
                   <div className="text-sm font-semibold text-neutral-700">
-                    {formatPrice(search.estimate.low)}
+                    {formatPrice(search.estimate.low)}/mo
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-neutral-500 mb-1">High</div>
                   <div className="text-sm font-semibold text-neutral-700">
-                    {formatPrice(search.estimate.high)}
+                    {formatPrice(search.estimate.high)}/mo
                   </div>
                 </div>
               </div>

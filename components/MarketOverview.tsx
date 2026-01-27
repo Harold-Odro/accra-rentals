@@ -127,7 +127,7 @@ export default function MarketOverview() {
           <div className="text-3xl font-display font-bold text-neutral-900 mb-1">
             {stats.totalListings}
           </div>
-          <div className="text-sm text-neutral-500">properties</div>
+          <div className="text-sm text-neutral-500">apartments</div>
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-lg shadow-neutral-900/5 border border-neutral-200 animate-scale-in" style={{ animationDelay: '200ms' }}>
@@ -152,27 +152,27 @@ export default function MarketOverview() {
         {/* Average Price by Location */}
         <div className="rounded-3xl bg-white p-8 shadow-lg shadow-neutral-900/5 border border-neutral-200">
           <h3 className="text-xl font-display font-bold text-neutral-900 mb-6">
-            Average Rent by Location
+            Average Monthly Rent by Location
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={locationData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-              <XAxis 
-                dataKey="location" 
+              <XAxis
+                dataKey="location"
                 tick={{ fontSize: 12 }}
                 angle={-45}
                 textAnchor="end"
                 height={80}
               />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
+              <Tooltip
+                contentStyle={{
                   backgroundColor: '#fff',
                   border: '1px solid #e5e5e5',
                   borderRadius: '8px',
                   padding: '12px'
                 }}
-                formatter={(value: number) => [`GH₵${value.toLocaleString()}`, 'Avg. Rent']}
+                formatter={(value: number) => [`GH₵${value.toLocaleString()}/month`, 'Avg. Rent']}
               />
               <Bar dataKey="avgPrice" fill="#ef4444" radius={[8, 8, 0, 0]} />
             </BarChart>
@@ -182,7 +182,7 @@ export default function MarketOverview() {
         {/* Bedroom Distribution */}
         <div className="rounded-3xl bg-white p-8 shadow-lg shadow-neutral-900/5 border border-neutral-200">
           <h3 className="text-xl font-display font-bold text-neutral-900 mb-6">
-            Property Distribution
+            Apartment Distribution by Bedrooms
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -216,8 +216,8 @@ export default function MarketOverview() {
             <thead>
               <tr className="border-b border-neutral-200">
                 <th className="pb-3 text-left text-sm font-semibold text-neutral-900">Location</th>
-                <th className="pb-3 text-right text-sm font-semibold text-neutral-900">Avg. Price</th>
-                <th className="pb-3 text-right text-sm font-semibold text-neutral-900">Listings</th>
+                <th className="pb-3 text-right text-sm font-semibold text-neutral-900">Avg. Rent/Month</th>
+                <th className="pb-3 text-right text-sm font-semibold text-neutral-900">Apartments</th>
                 <th className="pb-3 text-right text-sm font-semibold text-neutral-900">Rank</th>
               </tr>
             </thead>
@@ -225,7 +225,7 @@ export default function MarketOverview() {
               {locationData.map((loc, i) => (
                 <tr key={i} className="hover:bg-neutral-50 transition-colors">
                   <td className="py-4 text-sm font-medium text-neutral-900">{loc.location}</td>
-                  <td className="py-4 text-right text-sm text-neutral-600">GH₵{loc.avgPrice.toLocaleString()}</td>
+                  <td className="py-4 text-right text-sm text-neutral-600">GH₵{loc.avgPrice.toLocaleString()}/mo</td>
                   <td className="py-4 text-right text-sm text-neutral-600">{loc.count}</td>
                   <td className="py-4 text-right">
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${

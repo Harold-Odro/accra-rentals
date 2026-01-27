@@ -91,7 +91,7 @@ export default function ComparisonTool() {
               Compare Neighborhoods
             </h2>
             <p className="text-neutral-600">
-              Compare rental prices across different locations in Accra
+              Compare monthly apartment rent across different locations in Accra
             </p>
           </div>
 
@@ -190,6 +190,7 @@ export default function ComparisonTool() {
               <div className="text-sm font-medium text-green-700 mb-2">Most Affordable</div>
               <div className="text-2xl font-display font-bold text-green-900">
                 {formatPrice(getLowestPrice())}
+                <span className="text-sm font-normal text-green-600">/month</span>
               </div>
               <div className="text-sm text-green-600 mt-1">
                 {comparisons.find(c => c.estimate?.average === getLowestPrice())?.location || '-'}
@@ -200,6 +201,7 @@ export default function ComparisonTool() {
               <div className="text-sm font-medium text-primary-700 mb-2">Premium Area</div>
               <div className="text-2xl font-display font-bold text-primary-900">
                 {formatPrice(getHighestPrice())}
+                <span className="text-sm font-normal text-primary-600">/month</span>
               </div>
               <div className="text-sm text-primary-600 mt-1">
                 {comparisons.find(c => c.estimate?.average === getHighestPrice())?.location || '-'}
@@ -234,16 +236,17 @@ export default function ComparisonTool() {
 
                     <div className="space-y-3">
                       <div>
-                        <div className="text-xs text-neutral-500 mb-1">Average Rent</div>
+                        <div className="text-xs text-neutral-500 mb-1">Average Monthly Rent</div>
                         <div className="text-2xl font-display font-bold text-neutral-900">
                           {formatPrice(item.estimate.average)}
+                          <span className="text-sm font-normal text-neutral-500">/mo</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 text-sm">
                         <ArrowRight className="h-4 w-4 text-neutral-400" />
                         <span className="text-neutral-600">
-                          {formatPrice(item.estimate.low)} - {formatPrice(item.estimate.high)}
+                          {formatPrice(item.estimate.low)} - {formatPrice(item.estimate.high)}/mo
                         </span>
                       </div>
 
@@ -314,8 +317,8 @@ export default function ComparisonTool() {
                           />
                         </div>
                       </div>
-                      <div className="w-28 text-right font-semibold text-neutral-900">
-                        {formatPrice(item.estimate?.average || 0)}
+                      <div className="w-32 text-right font-semibold text-neutral-900">
+                        {formatPrice(item.estimate?.average || 0)}<span className="text-xs font-normal text-neutral-500">/mo</span>
                       </div>
                     </div>
                   )
