@@ -1,9 +1,6 @@
 """
-Meqasa Working Scraper - Based on Actual HTML Structure
-Extracts from mqs-prop-dt-wrapper divs
-
-Automated scraping for Accra Rentals platform.
-Can be run manually or via GitHub Actions.
+Meqasa Alternative Scraper - Direct HTML parsing
+Extracts data from raw HTML instead of using selectors
 """
 
 from playwright.sync_api import sync_playwright
@@ -11,196 +8,216 @@ import json
 import time
 from datetime import datetime
 import re
-import os
 from pathlib import Path
 from collections import Counter
 
 
 def get_output_path():
     """Get the correct output path for the JSON file."""
-    # Get the directory where this script is located
     script_dir = Path(__file__).parent.absolute()
-    # Go up one level and into public/
     public_dir = script_dir.parent / 'public'
-
-    # Create public directory if it doesn't exist
     public_dir.mkdir(exist_ok=True)
-
     return public_dir / 'meqasa_data.json'
 
 
-def scrape_meqasa_working(output_path=None):
-    """Scrape Meqasa based on actual structure"""
+def extract_from_html(html_content, page_num):
+    """Extract listings directly from HTML string"""
+    listings = []
+
+    # Split by mqs-prop-dt-wrapper divs
+    sections = html_content.split('class="mqs-prop-dt-wrapper"')
+
+    print(f"  Found {len(sections)-1} potential listing sections")
+
+    for section in sections[1:]:  # Skip first (before any wrapper)
+        try:
+            # Extract title and URL from h2 a tag
+            title_match = re.search(
+                r'<h2>\s*<a[^>]*href="([^"]*)"[^>]*>([^<]+)</a>', section)
+            if not title_match:
+                continue
+
+            href = title_match.group(1)
+            title = title_match.group(2).strip()
+
+            if not title or len(title) < 10:
+                continue
+
+            # Filter out non-apartments
+            title_lower = title.lower()
+            excluded = ['house', 'villa', 'mansion', 'townhouse',
+                        'office', 'shop', 'warehouse', 'land', 'plot']
+            if any(term in title_lower for term in excluded):
+                continue
+
+            # Extract price
+            price_match = re.search(
+                r'GH₵\s*([\d,]+)\s*<span>.*?month', section, re.IGNORECASE)
+            if not price_match:
+                continue
+
+            try:
+                price = int(price_match.group(1).replace(',', ''))
+            except:
+                continue
+
+            # Validate price
+            if price < 500 or price > 100000:
+                continue
+
+            # Extract bedrooms
+            bed_match = re.search(
+                r'<li class="bed"><span>(\d+)</span>', section)
+            bedrooms = None
+            if bed_match:
+                try:
+                    bedrooms = int(bed_match.group(1))
+                except:
+                    pass
+
+            # Extract location from title
+            location = "Accra"
+            loc_match = re.search(
+                r'in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', title)
+            if loc_match:
+                location = loc_match.group(1).strip()
+                location = location.replace('Accra-Ghana', 'Accra')
+                location = location.replace('-', ' ')
+                if ',' in location:
+                    location = location.split(',')[0].strip()
+
+            # Build full URL
+            full_url = f"https://meqasa.com{href}" if not href.startswith(
+                'http') else href
+
+            listing = {
+                'title': title,
+                'price': price,
+                'price_text': f"GH₵{price:,}/month",
+                'price_period': 'month',
+                'property_type': 'apartment',
+                'bedrooms': bedrooms,
+                'location': location,
+                'url': full_url,
+                'source': 'meqasa',
+                'scraped_at': datetime.now().isoformat(),
+                'page': page_num
+            }
+
+            listings.append(listing)
+
+        except Exception as e:
+            continue
+
+    return listings
+
+
+def scrape_meqasa_alternative(output_path=None):
+    """Scrape Meqasa using direct HTML parsing"""
 
     print("="*70)
-    print("MEQASA WORKING SCRAPER")
+    print("MEQASA ALTERNATIVE SCRAPER")
     print("="*70)
+    print("\nThis scraper extracts data directly from HTML")
+    print("More reliable than DOM selectors\n")
 
     all_listings = []
 
     with sync_playwright() as p:
-        print("\nLaunching browser...")
+        print("Launching browser...")
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+
+        context = browser.new_context(
+            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        )
+        page = context.new_page()
         page.set_viewport_size({"width": 1920, "height": 1080})
 
         base_url = 'https://meqasa.com/properties-for-rent-in-accra-ghana'
 
-        for page_num in range(1, 51):  # Scrape 50 pages
+        for page_num in range(1, 51):
             if page_num == 1:
                 url = base_url
             else:
                 url = f"{base_url}?page={page_num}"
 
-            print(f"\nPage {page_num}/50: {url}")
+            print(f"\nPage {page_num}/50")
 
             try:
-                page.goto(url, wait_until='load', timeout=30000)
-                time.sleep(3)
+                # Load page
+                response = page.goto(
+                    url, wait_until='domcontentloaded', timeout=30000)
 
-                # Find all listing wrappers
-                listing_containers = page.query_selector_all(
-                    'div.mqs-prop-dt-wrapper')
+                if not response or response.status != 200:
+                    print(
+                        f"  ✗ Failed to load (status: {response.status if response else 'N/A'})")
+                    if page_num == 1:
+                        break
+                    continue
 
-                if not listing_containers:
-                    print(f"  No listings found, stopping.")
-                    break
+                # Wait a bit for content
+                time.sleep(4)
 
-                print(f"  Found {len(listing_containers)} listings")
+                # Get the HTML
+                html_content = page.content()
 
-                for container in listing_containers:
-                    try:
-                        # Extract title and URL
-                        title_elem = container.query_selector('h2 a')
-                        if not title_elem:
-                            continue
+                # Save first page HTML for debugging
+                if page_num == 1:
+                    with open('meqasa_page1.html', 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    print("  (Saved page HTML to meqasa_page1.html)")
 
-                        title = title_elem.text_content().strip()
-                        href = title_elem.get_attribute('href')
+                # Extract listings from HTML
+                page_listings = extract_from_html(html_content, page_num)
 
-                        # Filter for apartments only (skip houses, offices, shops, land, etc.)
-                        title_lower = title.lower()
-                        is_apartment = any(term in title_lower for term in [
-                            'apartment', 'flat', 'studio', 'penthouse', 'duplex',
-                            'condo', 'condominium', 'loft', 'bedsitter', 'chamber and hall'
-                        ])
-                        is_not_apartment = any(term in title_lower for term in [
-                            'house', 'villa', 'mansion', 'townhouse', 'bungalow',
-                            'office', 'shop', 'warehouse', 'land', 'plot', 'store',
-                            'commercial', 'retail', 'industrial'
-                        ])
+                if not page_listings:
+                    print(f"  ✗ No listings extracted")
+                    if page_num == 1:
+                        print("\n❌ No listings found on first page!")
+                        print("Check meqasa_page1.html to see what was loaded")
+                        break
+                    else:
+                        print("  End of results")
+                        break
 
-                        # Skip if it's clearly not an apartment
-                        if is_not_apartment and not is_apartment:
-                            continue
-
-                        # If neither apartment nor non-apartment keywords found, skip to be safe
-                        if not is_apartment:
-                            continue
-
-                        # Extract price
-                        price_elem = container.query_selector('p.h3')
-                        if not price_elem:
-                            continue
-
-                        price_text = price_elem.text_content().lower()
-                        price_match = re.search(r'GH₵([\d,]+)', price_text, re.IGNORECASE)
-                        if not price_match:
-                            continue
-
-                        try:
-                            price = int(price_match.group(1).replace(',', ''))
-                        except:
-                            continue
-
-                        # Filter for monthly rentals only
-                        # Skip yearly rentals (usually indicated by "/year", "per year", "p.a", "per annum")
-                        is_yearly = any(term in price_text for term in ['/year', 'per year', 'p.a', 'per annum', '/yr', 'yearly'])
-
-                        # Most Meqasa rentals are monthly by default, but verify
-                        is_monthly = any(term in price_text for term in ['/month', 'per month', '/mo', 'monthly', 'p/m'])
-
-                        # If explicitly yearly, skip this listing
-                        if is_yearly:
-                            continue
-
-                        # Validate price range for monthly rentals (GH₵500 - GH₵100,000/month is reasonable)
-                        if price < 500 or price > 100000:
-                            continue
-
-                        # Set price period (default to monthly for Meqasa rentals)
-                        price_period = 'month'
-
-                        # Extract bedrooms
-                        bed_elem = container.query_selector('li.bed span')
-                        bedrooms = None
-                        if bed_elem:
-                            try:
-                                bedrooms = int(bed_elem.text_content().strip())
-                            except:
-                                pass
-
-                        # Extract location from title
-                        # Pattern: "X bedroom house/apartment for rent in LOCATION"
-                        location = "Accra"
-                        loc_match = re.search(
-                            r'in\s+([A-Z][a-z]+(?:[ -][A-Z][a-z]+)*)', title)
-                        if loc_match:
-                            location = loc_match.group(1).strip()
-                            # Clean up
-                            location = location.replace('Accra-Ghana', 'Accra')
-                            location = location.replace('-', ' ')
-                            if ',' in location:
-                                location = location.split(',')[0].strip()
-
-                        # Build URL
-                        full_url = f"https://meqasa.com{href}" if href and not href.startswith(
-                            'http') else href
-
-                        listing = {
-                            'title': title,
-                            'price': price,
-                            'price_text': f"GH₵{price:,}/month",
-                            'price_period': price_period,
-                            'property_type': 'apartment',
-                            'bedrooms': bedrooms,
-                            'location': location,
-                            'url': full_url or "",
-                            'source': 'meqasa',
-                            'scraped_at': datetime.now().isoformat(),
-                            'page': page_num
-                        }
-
-                        all_listings.append(listing)
-                        print(
-                            f"    {len(all_listings):3d}. {location:20s} | {bedrooms if bedrooms else '?'}BR | GH₵{price:,}/mo")
-
-                    except Exception as e:
-                        continue
+                # Print extracted listings
+                for listing in page_listings:
+                    all_listings.append(listing)
+                    loc = listing['location']
+                    beds = listing['bedrooms'] or '?'
+                    price = listing['price']
+                    print(
+                        f"    {len(all_listings):3d}. {loc:20s} | {beds}BR | GH₵{price:,}")
 
                 print(
-                    f"  Page total: {len([l for l in all_listings if l.get('page') == page_num])} | Running total: {len(all_listings)}")
+                    f"  ✓ Extracted {len(page_listings)} listings | Total: {len(all_listings)}")
 
                 if page_num % 10 == 0:
-                    print(
-                        f"\n  🎯 Checkpoint: {len(all_listings)} listings collected")
+                    print(f"\n  🎯 Checkpoint: {len(all_listings)} total")
 
-                time.sleep(2)
+                # Wait before next page
+                time.sleep(2.5)
 
             except Exception as e:
-                print(f"  Error: {e}")
-                break
+                print(f"  ✗ Error: {e}")
+                if page_num == 1:
+                    break
+                continue
 
         browser.close()
 
     print(f"\n{'='*70}")
     print("SCRAPING COMPLETE")
     print(f"{'='*70}")
-    print(f"Total listings collected: {len(all_listings)}")
+    print(f"Total listings: {len(all_listings)}")
 
     if len(all_listings) == 0:
         print("\n❌ No listings extracted!")
-        return
+        print("\nTroubleshooting:")
+        print("  1. Check meqasa_page1.html - does it have listings?")
+        print("  2. Is Meqasa blocking scrapers?")
+        print("  3. Did the website structure change?")
+        return False
 
     # Determine output path
     if output_path is None:
@@ -214,7 +231,6 @@ def scrape_meqasa_working(output_path=None):
         'property_type': 'apartments',
         'price_period': 'monthly',
         'currency': 'GHS',
-        'currency_symbol': 'GH₵',
         'listings': all_listings
     }
 
@@ -225,24 +241,21 @@ def scrape_meqasa_working(output_path=None):
 
     # Analysis
     print(f"\n{'='*70}")
-    print("ANALYSIS")
+    print("STATISTICS")
     print(f"{'='*70}")
 
     prices = [l['price'] for l in all_listings]
-    print(f"\n💰 MONTHLY RENT PRICES (Apartments Only)")
-    print(f"  Total listings:  {len(all_listings)}")
-    print(f"  Average:    GH₵{sum(prices)/len(prices):>10,.0f}/month")
-    print(f"  Median:     GH₵{sorted(prices)[len(prices)//2]:>10,}/month")
-    print(f"  Min:        GH₵{min(prices):>10,}/month")
-    print(f"  Max:        GH₵{max(prices):>10,}/month")
+    print(f"\n💰 PRICES")
+    print(f"  Total:   {len(all_listings)}")
+    print(f"  Average: GH₵{sum(prices)/len(prices):,.0f}/month")
+    print(f"  Median:  GH₵{sorted(prices)[len(prices)//2]:,}/month")
+    print(f"  Range:   GH₵{min(prices):,} - GH₵{max(prices):,}")
 
-    locations = [l['location'] for l in all_listings]
-    loc_counts = Counter(locations)
-    print(f"\n📍 LOCATIONS ({len(loc_counts)} unique)")
-    for loc, count in loc_counts.most_common(25):
-        percentage = (count / len(locations)) * 100
-        bar = '█' * min(int(count / 3), 40)
-        print(f"  {loc:25s}: {count:4d} ({percentage:4.1f}%) {bar}")
+    locations = Counter(l['location'] for l in all_listings)
+    print(f"\n📍 TOP 20 LOCATIONS (out of {len(locations)})")
+    for loc, count in locations.most_common(20):
+        pct = (count / len(all_listings)) * 100
+        print(f"  {loc:25s}: {count:4d} ({pct:4.1f}%)")
 
     bedrooms = [l['bedrooms'] for l in all_listings if l.get('bedrooms')]
     if bedrooms:
@@ -250,25 +263,21 @@ def scrape_meqasa_working(output_path=None):
         print(f"\n🛏️  BEDROOMS")
         for beds in sorted(bed_counts.keys()):
             count = bed_counts[beds]
-            percentage = (count / len(bedrooms)) * 100
-            bar = '█' * min(int(count / 5), 40)
-            print(f"  {beds} BR: {count:4d} ({percentage:4.1f}%) {bar}")
+            pct = (count / len(bedrooms)) * 100
+            print(f"  {beds}BR: {count:4d} ({pct:4.1f}%)")
 
     print(f"\n{'='*70}")
     print("✅ SUCCESS!")
     print(f"{'='*70}")
-    print(f"\nData saved directly to: {output_path}")
-    print("Your app will automatically use the updated data!")
+
+    return True
 
 
 if __name__ == "__main__":
     import argparse
-
-    parser = argparse.ArgumentParser(description='Scrape Meqasa rental listings')
-    parser.add_argument('--output', '-o', type=str, help='Custom output path for JSON file')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output', '-o', type=str)
     args = parser.parse_args()
 
-    if args.output:
-        scrape_meqasa_working(output_path=args.output)
-    else:
-        scrape_meqasa_working()
+    success = scrape_meqasa_alternative(args.output)
+    exit(0 if success else 1)
