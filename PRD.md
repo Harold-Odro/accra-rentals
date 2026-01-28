@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 ## Accra Rentals - Rental Price Intelligence Platform
 
-**Version:** 1.0.0
-**Last Updated:** January 23, 2026
+**Version:** 1.1.0
+**Last Updated:** January 27, 2026
 **Status:** Active Development
 
 ---
@@ -61,7 +61,7 @@ Accra Rentals aggregates rental listing data from Meqasa (a leading Ghanaian rea
 **Purpose:** Provide accurate rental price estimates based on user-specified criteria.
 
 **Functionality:**
-- Select location from 20+ Accra neighborhoods
+- Select location from 75+ Greater Accra neighborhoods
 - Choose bedroom count (1-5 bedrooms)
 - View price range (low, average, high)
 - See confidence level based on data availability
@@ -165,8 +165,11 @@ interface Listing {
   title: string;
   price: number;
   price_text: string;
+  price_period?: string;      // "month"
+  property_type?: string;     // "apartment"
   bedrooms: number | null;
   location: string;
+  area?: string;              // Search area used during scraping
   url?: string;
   source: string;
   scraped_at: string;
@@ -202,26 +205,50 @@ interface LocationStats {
 ## 8. Data Coverage
 
 ### 8.1 Current Dataset
-- **Total Listings:** 136 properties
+- **Region:** Greater Accra
+- **Total Areas:** 75+ neighborhoods
 - **Data Source:** Meqasa.com
-- **Last Scraped:** January 21, 2026
-- **Update Frequency:** Manual (scraper-based)
+- **Property Type:** Apartments only (monthly rentals)
+- **Update Frequency:** Daily via GitHub Actions
 
 ### 8.2 Neighborhoods Covered
-- Osu
-- East Legon
-- Airport Residential
-- Cantonments
-- Achimota
-- Spintex
-- Tema
-- Labadi
-- Dansoman
-- And 10+ more areas
+
+**Premium/Upscale Areas:**
+- East Legon, Airport Residential, Cantonments, Labone, Osu
+- Ridge, Roman Ridge, Dzorwulu, Abelemkpe, Tesano
+
+**Spintex/Tema Corridor:**
+- Spintex, Tema, Community 25, Sakumono, Lashibi
+- Baatsona, Kpone, Ashaiman
+
+**North Accra:**
+- Madina, Adenta, Haatso, Dome, Kwabenya
+- Taifa, Achimota, Legon
+
+**West Accra:**
+- Dansoman, Kaneshie, Odorkor, Darkuman, Awoshie
+- Ablekuma, Santa Maria, Kwashieman, Sowutuom
+
+**Kasoa/Weija Corridor:**
+- Kasoa, Weija, Gbawe, Mallam, McCarthy Hill
+
+**Pokuase/Amasaman Corridor:**
+- Pokuase, Amasaman, Ofankor
+
+**Coastal Areas:**
+- Teshie, Nungua, La, Labadi, Mamprobi
+
+**Central Accra:**
+- Kokomlemle, Adabraka, Asylum Down, North Ridge
+
+**Additional Areas:**
+- Prampram, Dodowa, Oyibi, East Airport, Shiashie
+- American House, Trasacco, Ogbojo, West Legon, Atomic
+- Tantra Hill, Lapaz, and more...
 
 ### 8.3 Price Range
-- **Minimum:** GH₵3,800/month
-- **Maximum:** GH₵37,960/month
+- **Minimum:** GH₵500/month
+- **Maximum:** GH₵100,000/month
 - **Bedroom Range:** 1-5 bedrooms
 
 ---
@@ -304,7 +331,8 @@ interface LocationStats {
 - [ ] Additional data sources
 - [ ] Commercial property listings
 - [ ] More cities in Ghana
-- [ ] Automated daily scraping
+- [x] Automated daily scraping (GitHub Actions)
+- [x] Greater Accra region coverage (75+ areas)
 
 ### Phase 4 - Advanced Analytics
 - [ ] Machine learning price predictions

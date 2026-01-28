@@ -5,12 +5,85 @@ export interface Listing {
   title: string;
   price: number;
   price_text: string;
+  price_period?: string;
+  property_type?: string;
   bedrooms: number | null;
   location: string;
+  area?: string;  // Search area used during scraping
   url?: string;
   source: string;
   scraped_at: string;
   page?: number;
+}
+
+// Greater Accra location aliases for normalization
+const LOCATION_ALIASES: Record<string, string> = {
+  // Spelling variations
+  'cantonment': 'Cantonments',
+  'airport residential area': 'Airport Residential',
+  'airport res': 'Airport Residential',
+  'roman ridge area': 'Roman Ridge',
+  'east legon hills': 'East Legon',
+  'east legon extension': 'East Legon',
+  'spintex road': 'Spintex',
+  'tema community 25': 'Community 25',
+  'comm 25': 'Community 25',
+  'tema comm 25': 'Community 25',
+  'north legon': 'Legon',
+  'west legon': 'West Legon',
+  'madina estates': 'Madina',
+  'adenta housing down': 'Adenta',
+  'adentan': 'Adenta',
+  'kasoa millennium city': 'Kasoa',
+  'mccarthy hills': 'McCarthy Hill',
+  'macarthy hill': 'McCarthy Hill',
+  'dzorwulu area': 'Dzorwulu',
+  'dansoman exhibition': 'Dansoman',
+  'dansoman last stop': 'Dansoman',
+  'asylum down area': 'Asylum Down',
+  'north ridge area': 'North Ridge',
+  'osu re': 'Osu',
+  'osu oxford street': 'Osu',
+  'labone junction': 'Labone',
+  'la dade': 'La',
+  'la palm': 'La',
+  'labadi beach': 'Labadi',
+  'teshie nungua': 'Teshie',
+  'teshie estates': 'Teshie',
+  'sakumono estates': 'Sakumono',
+  'tema sakumono': 'Sakumono',
+  'achimota golf hills': 'Achimota',
+  'achimota mile 7': 'Achimota',
+  'tantra hills': 'Tantra Hill',
+  'dome pillar 2': 'Dome',
+  'dome kwabenya': 'Dome',
+  'haatso ecomog': 'Haatso',
+  'haatso atomic': 'Haatso',
+  'pig farm junction': 'Pig Farm',
+  'lapaz': 'Lapaz',
+  'la paz': 'Lapaz',
+  'circle odorkor': 'Circle',
+  'kwame nkrumah circle': 'Circle',
+  'east airport': 'Airport Residential',
+  'airport hills': 'Airport Residential',
+  'american house east legon': 'American House',
+  'trasacco valley': 'Trasacco',
+};
+
+// Normalize location name
+export function normalizeLocation(location: string): string {
+  const lower = location.toLowerCase().trim();
+
+  // Check aliases first
+  if (LOCATION_ALIASES[lower]) {
+    return LOCATION_ALIASES[lower];
+  }
+
+  // Title case the location if no alias found
+  return location
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export interface PriceEstimate {

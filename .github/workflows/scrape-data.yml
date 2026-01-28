@@ -1,4 +1,4 @@
-name: Scrape Rental Data
+name: Scrape Greater Accra Rental Data
 
 on:
   # Run daily at 6 AM UTC (9 AM Ghana time)
@@ -8,21 +8,15 @@ on:
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
-      pages:
-        description: 'Number of pages to scrape (default: 50)'
+      pages_per_area:
+        description: 'Max pages per area (default: 10)'
         required: false
-        default: '50'
-
-  # Optional: Run on push to main (for testing)
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - 'scrapper/**'
+        default: '10'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90  # Increased for 75+ areas
 
     steps:
       - name: Checkout repository
@@ -43,10 +37,10 @@ jobs:
           playwright install chromium
           playwright install-deps chromium
 
-      - name: Run scraper
+      - name: Run Greater Accra scraper
         run: |
           cd scrapper
-          python meqasa_working_scraper.py
+          python meqasa_working_scraper.py --pages ${{ github.event.inputs.pages_per_area || '10' }}
         env:
           PYTHONUNBUFFERED: '1'
 
@@ -61,29 +55,30 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add public/meqasa_data.json
-          git commit -m "chore: update rental data $(date +'%Y-%m-%d %H:%M')"
+          git commit -m "chore: update Greater Accra rental data $(date +'%Y-%m-%d %H:%M')"
           git push
 
       - name: Summary
         run: |
-          echo "## Scraping Complete" >> $GITHUB_STEP_SUMMARY
+          echo "## Greater Accra Region Scraping Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f public/meqasa_data.json ]; then
             LISTINGS=$(cat public/meqasa_data.json | python -c "import sys, json; print(json.load(sys.stdin)['total_listings'])")
             SCRAPED_AT=$(cat public/meqasa_data.json | python -c "import sys, json; print(json.load(sys.stdin)['scraped_at'])")
-            echo "- **Total Listings:** $LISTINGS" >> $GITHUB_STEP_SUMMARY
+            AREAS=$(cat public/meqasa_data.json | python -c "import sys, json; print(json.load(sys.stdin).get('areas_scraped', 'N/A'))")
+            echo "- **Region:** Greater Accra" >> $GITHUB_STEP_SUMMARY
+            echo "- **Areas Scraped:** $AREAS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Listings:** $LISTINGS apartments" >> $GITHUB_STEP_SUMMARY
             echo "- **Scraped At:** $SCRAPED_AT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Top 10 Areas by Listings" >> $GITHUB_STEP_SUMMARY
+            cat public/meqasa_data.json | python -c "
+import sys, json
+data = json.load(sys.stdin)
+stats = data.get('area_stats', {})
+sorted_areas = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
+for area, count in sorted_areas:
+    if count > 0:
+        print(f'- {area}: {count} listings')
+" >> $GITHUB_STEP_SUMMARY
           fi
-
-  # Optional: Trigger deployment after scraping
-  # deploy:
-  #   needs: scrape
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy to Vercel
-  #       uses: amondnet/vercel-action@v25
-  #       with:
-  #         vercel-token: ${{ secrets.VERCEL_TOKEN }}
-  #         vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-  #         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-  #         vercel-args: '--prod'

@@ -38,7 +38,7 @@ export default function HomePage() {
               </h1>
               
               <p className="mx-auto max-w-2xl text-xl text-neutral-300 mb-12 text-balance">
-                Accurate monthly apartment rent estimates across Accra. Make informed decisions with real market data.
+                Accurate monthly apartment rent estimates across Greater Accra Region. Make informed decisions with real market data.
               </p>
 
               {/* Tab Switcher */}
@@ -140,7 +140,7 @@ export default function HomePage() {
                 <span className="text-xl font-display font-bold">Accra Rentals</span>
               </div>
               <p className="text-sm text-neutral-600">
-                Real-time rental market intelligence for Greater Accra.
+                Real-time rental market intelligence covering 75+ neighborhoods across Greater Accra Region.
               </p>
             </div>
             
