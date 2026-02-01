@@ -1,5 +1,13 @@
 // lib/recommendations.ts
 import { Listing, getLocationStats } from './data'
+import {
+  CHEAPER_ALTERNATIVE_THRESHOLD,
+  BEST_DEAL_THRESHOLD,
+  BUDGET_STRETCH_THRESHOLD,
+  AFFORDABLE_UPGRADE_THRESHOLD,
+  CONFIDENCE_MEDIUM_THRESHOLD,
+  CONFIDENCE_HIGH_THRESHOLD
+} from './utils'
 
 export interface Recommendation {
   type: 'cheaper_alternative' | 'affordable_upgrade' | 'best_deal' | 'budget_stretch'
@@ -11,6 +19,12 @@ export interface Recommendation {
   confidence: 'high' | 'medium' | 'low'
 }
 
+function getRecommendationConfidence(count: number): 'high' | 'medium' | 'low' {
+  if (count >= CONFIDENCE_HIGH_THRESHOLD) return 'high'
+  if (count >= CONFIDENCE_MEDIUM_THRESHOLD) return 'medium'
+  return 'low'
+}
+
 export function getRecommendations(
   budget: number,
   preferredLocation: string,
@@ -19,16 +33,16 @@ export function getRecommendations(
 ): Recommendation[] {
   const recommendations: Recommendation[] = []
   const stats = getLocationStats(listings)
-  
+
   // Find current location stats
   const currentLocationStats = stats.find(s => s.location === preferredLocation)
   const currentPrice = currentLocationStats?.priceByBedroom[bedrooms] || currentLocationStats?.averagePrice || budget
-  
+
   // 1. Cheaper Alternatives (same bedrooms, different location, lower price)
   const cheaperAlternatives = stats
     .filter(s => {
       const price = s.priceByBedroom[bedrooms] || s.averagePrice
-      return price > 0 && price < currentPrice * 0.85 && s.location !== preferredLocation
+      return price > 0 && price < currentPrice * CHEAPER_ALTERNATIVE_THRESHOLD && s.location !== preferredLocation
     })
     .map(s => ({
       type: 'cheaper_alternative' as const,
@@ -37,19 +51,19 @@ export function getRecommendations(
       bedrooms,
       savings: currentPrice - (s.priceByBedroom[bedrooms] || s.averagePrice),
       reason: `Save GH₵${(currentPrice - (s.priceByBedroom[bedrooms] || s.averagePrice)).toLocaleString()}/month vs ${preferredLocation}`,
-      confidence: s.count >= 5 ? 'high' as const : s.count >= 3 ? 'medium' as const : 'low' as const
+      confidence: getRecommendationConfidence(s.count)
     }))
     .sort((a, b) => (b.savings || 0) - (a.savings || 0))
     .slice(0, 3)
-  
+
   recommendations.push(...cheaperAlternatives)
-  
+
   // 2. Affordable Upgrades (more bedrooms within budget)
   if (bedrooms < 5) {
     const upgrades = stats
       .filter(s => {
         const price = s.priceByBedroom[bedrooms + 1]
-        return price > 0 && price <= budget * 1.1
+        return price > 0 && price <= budget * AFFORDABLE_UPGRADE_THRESHOLD
       })
       .map(s => ({
         type: 'affordable_upgrade' as const,
@@ -57,14 +71,14 @@ export function getRecommendations(
         price: s.priceByBedroom[bedrooms + 1],
         bedrooms: bedrooms + 1,
         reason: `Get ${bedrooms + 1} bedrooms for just GH₵${(s.priceByBedroom[bedrooms + 1]).toLocaleString()}/month`,
-        confidence: s.count >= 5 ? 'high' as const : s.count >= 3 ? 'medium' as const : 'low' as const
+        confidence: getRecommendationConfidence(s.count)
       }))
       .sort((a, b) => a.price - b.price)
       .slice(0, 2)
-    
+
     recommendations.push(...upgrades)
   }
-  
+
   // 3. Best Deals (below market average for this bedroom count)
   // Calculate market-wide average for requested bedroom count
   const allBedroomPrices = stats
@@ -81,7 +95,7 @@ export function getRecommendations(
           const bedroomPrice = s.priceByBedroom[bedrooms]
           // Compare to market average for SAME bedroom count (not location's overall average)
           return bedroomPrice > 0 &&
-                 bedroomPrice < marketAvgForBedroom * 0.85 && // 15% below market average
+                 bedroomPrice < marketAvgForBedroom * BEST_DEAL_THRESHOLD &&
                  bedroomPrice <= budget &&
                  s.location !== preferredLocation
         })
@@ -94,7 +108,7 @@ export function getRecommendations(
             price: bedroomPrice,
             bedrooms,
             reason: `${Math.round((savingsVsMarket / marketAvgForBedroom) * 100)}% below market avg for ${bedrooms}BR`,
-            confidence: s.count >= 5 ? 'high' as const : 'medium' as const
+            confidence: getRecommendationConfidence(s.count)
           }
         })
         .sort((a, b) => a.price - b.price)
@@ -102,12 +116,12 @@ export function getRecommendations(
     : []
 
   recommendations.push(...bestDeals)
-  
+
   // 4. Budget Stretch Options (if budget allows 10-15% more)
   const stretchOptions = stats
     .filter(s => {
       const price = s.priceByBedroom[bedrooms] || s.averagePrice
-      return price > budget && price <= budget * 1.15 && s.location !== preferredLocation
+      return price > budget && price <= budget * BUDGET_STRETCH_THRESHOLD && s.location !== preferredLocation
     })
     .map(s => ({
       type: 'budget_stretch' as const,
@@ -115,13 +129,13 @@ export function getRecommendations(
       price: s.priceByBedroom[bedrooms] || s.averagePrice,
       bedrooms,
       reason: `Premium area for GH₵${((s.priceByBedroom[bedrooms] || s.averagePrice) - budget).toLocaleString()} more/month`,
-      confidence: s.count >= 5 ? 'high' as const : 'medium' as const
+      confidence: getRecommendationConfidence(s.count)
     }))
     .sort((a, b) => a.price - b.price)
     .slice(0, 2)
-  
+
   recommendations.push(...stretchOptions)
-  
+
   return recommendations
 }
 

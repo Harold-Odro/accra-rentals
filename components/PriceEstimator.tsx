@@ -5,6 +5,8 @@ import { MapPin, Home, TrendingUp, AlertCircle, Check, Share2, Download, Copy, F
 import { getListings, getUniqueLocations, estimatePrice } from '@/lib/data'
 import { generateShareableLink, copyToClipboard, exportToPDF, generateTextSummary } from '@/lib/export'
 import { getRecommendations, getRecommendationIcon, getRecommendationTitle, type Recommendation } from '@/lib/recommendations'
+import { formatPrice, getMarketPosition } from '@/lib/utils'
+import { useToast } from './Toast'
 
 export default function PriceEstimator() {
   const [locations, setLocations] = useState<string[]>([])
@@ -22,6 +24,8 @@ export default function PriceEstimator() {
   const [shared, setShared] = useState(false)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
 
+  const { showToast } = useToast()
+
   // Load locations from real data
   useEffect(() => {
     const listings = getListings()
@@ -36,32 +40,29 @@ export default function PriceEstimator() {
 
     const listings = getListings()
     const result = estimatePrice(location, bedrooms as number, listings)
-    
+
     if (result) {
       setEstimate(result)
       setSaved(false)
       setCopied(false)
       setShared(false)
-      
+
       // Generate recommendations
       const recs = getRecommendations(result.average, location, bedrooms as number, listings)
       setRecommendations(recs)
     } else {
       // No data available
-      alert(`No data available for ${bedrooms} bedroom properties in ${location}`)
+      showToast(`No data available for ${bedrooms} bedroom properties in ${location}`, 'error')
     }
-  }
-
-  const formatPrice = (price: number) => {
-    return `GH₵${price.toLocaleString()}`
   }
 
   const handleSave = () => {
     if (!estimate || !location || !bedrooms) return
-    
+
     // Save to localStorage
     const searches = JSON.parse(localStorage.getItem('savedSearches') || '[]')
     searches.push({
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       location,
       bedrooms,
       estimate,
@@ -69,38 +70,44 @@ export default function PriceEstimator() {
     })
     localStorage.setItem('savedSearches', JSON.stringify(searches))
     setSaved(true)
+    showToast('Search saved successfully', 'success')
     setTimeout(() => setSaved(false), 2000)
   }
 
   const handleCopyText = async () => {
     if (!estimate || !location || !bedrooms) return
-    
+
     const text = generateTextSummary({ location, bedrooms: bedrooms as number, estimate })
     try {
       await copyToClipboard(text)
       setCopied(true)
+      showToast('Summary copied to clipboard', 'success')
       setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      alert('Failed to copy to clipboard')
+    } catch {
+      showToast('Failed to copy to clipboard', 'error')
     }
   }
 
   const handleShareLink = async () => {
     if (!estimate || !location || !bedrooms) return
-    
+
     const link = generateShareableLink({ location, bedrooms: bedrooms as number, estimate })
     try {
       await copyToClipboard(link)
       setShared(true)
+      showToast('Link copied to clipboard', 'success')
       setTimeout(() => setShared(false), 2000)
-    } catch (err) {
-      alert('Failed to copy link')
+    } catch {
+      showToast('Failed to copy link', 'error')
     }
   }
 
   const handleExportPDF = () => {
     if (!estimate || !location || !bedrooms) return
-    exportToPDF({ location, bedrooms: bedrooms as number, estimate })
+    const success = exportToPDF({ location, bedrooms: bedrooms as number, estimate })
+    if (!success) {
+      showToast('Please allow popups to export PDF', 'info')
+    }
   }
 
   return (
@@ -185,7 +192,7 @@ export default function PriceEstimator() {
                   {bedrooms} bedroom{bedrooms !== 1 && 's'} in {location}
                 </p>
               </div>
-              
+
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={handleSave}
@@ -322,7 +329,7 @@ export default function PriceEstimator() {
                 Market Position
               </div>
               <div className="text-2xl font-display font-bold text-neutral-900">
-                {['East Legon', 'Cantonments'].includes(location) ? 'Premium' : 'Standard'}
+                {getMarketPosition(location)}
               </div>
             </div>
           </div>
@@ -336,11 +343,11 @@ export default function PriceEstimator() {
                   Smart Recommendations
                 </h3>
               </div>
-              
+
               <div className="grid gap-4 md:grid-cols-2">
                 {recommendations.map((rec, index) => (
                   <div
-                    key={index}
+                    key={`${rec.location}-${rec.type}-${index}`}
                     className="rounded-2xl border-2 border-neutral-200 p-6 hover:border-primary-500 hover:bg-primary-50/50 transition-all"
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -356,7 +363,7 @@ export default function PriceEstimator() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="mb-3">
                       <div className="text-lg font-display font-bold text-neutral-900">
                         {rec.location}
@@ -365,14 +372,14 @@ export default function PriceEstimator() {
                         {rec.bedrooms} bedroom{rec.bedrooms > 1 ? 's' : ''}
                       </div>
                     </div>
-                    
+
                     <div className="mb-3">
                       <div className="text-2xl font-bold text-primary-600">
                         {formatPrice(rec.price)}
                         <span className="text-sm text-neutral-500 font-normal">/month</span>
                       </div>
                     </div>
-                    
+
                     <div className="text-sm text-neutral-600">
                       {rec.reason}
                     </div>

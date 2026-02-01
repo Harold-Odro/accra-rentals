@@ -22,7 +22,7 @@ export function generateShareableLink(data: EstimateData): string {
     conf: data.estimate.confidence,
     count: data.estimate.count.toString()
   })
-  
+
   return `${window.location.origin}?${params.toString()}`
 }
 
@@ -30,21 +30,17 @@ export function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text)
 }
 
-export function downloadAsImage(_elementId: string, _filename: string = 'accra-rentals-estimate.png') {
-  // This would use html2canvas library in production
-  // For now, we'll provide a text-based export
-  // Parameters prefixed with _ to indicate intentionally unused (future implementation)
-  alert('Image export feature coming soon! For now, use the "Copy" or "Share Link" options.')
-}
-
-export function exportToPDF(data: EstimateData) {
+/**
+ * Export estimate as PDF via print dialog
+ * @returns true if successful, false if popup was blocked
+ */
+export function exportToPDF(data: EstimateData): boolean {
   // Create a printable version
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
-    alert('Please allow popups to export PDF')
-    return
+    return false
   }
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -141,32 +137,32 @@ export function exportToPDF(data: EstimateData) {
     </head>
     <body>
       <div class="header">
-        <h1>🏠 Accra Rentals</h1>
+        <h1>Accra Rentals</h1>
         <div class="subtitle">Rental Price Estimate Report</div>
       </div>
-      
+
       <div class="estimate-card">
         <div class="property-details">
           <strong>${data.bedrooms} Bedroom${data.bedrooms > 1 ? 's' : ''}</strong> in <strong>${data.location}</strong>
         </div>
-        
+
         <div class="price-grid">
           <div class="price-box">
             <div class="price-label">Low</div>
             <div class="price-value">GH₵${data.estimate.low.toLocaleString()}</div>
           </div>
-          
+
           <div class="price-box average">
             <div class="price-label">Average</div>
             <div class="price-value">GH₵${data.estimate.average.toLocaleString()}</div>
           </div>
-          
+
           <div class="price-box">
             <div class="price-label">High</div>
             <div class="price-value">GH₵${data.estimate.high.toLocaleString()}</div>
           </div>
         </div>
-        
+
         <div class="confidence">
           <div>
             <strong>${data.estimate.confidence.charAt(0).toUpperCase() + data.estimate.confidence.slice(1)} Confidence</strong>
@@ -176,12 +172,12 @@ export function exportToPDF(data: EstimateData) {
           </div>
         </div>
       </div>
-      
+
       <div class="footer">
         <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         <p>AccraRentals.com - Accurate rental price intelligence for Greater Accra</p>
       </div>
-      
+
       <script>
         window.onload = function() {
           window.print();
@@ -190,24 +186,25 @@ export function exportToPDF(data: EstimateData) {
     </body>
     </html>
   `
-  
+
   printWindow.document.write(html)
   printWindow.document.close()
+  return true
 }
 
 export function generateTextSummary(data: EstimateData): string {
   return `
-🏠 Accra Rentals - Price Estimate
+Accra Rentals - Price Estimate
 
 Property: ${data.bedrooms} bedroom${data.bedrooms > 1 ? 's' : ''} in ${data.location}
 
-💰 Estimated Monthly Rent:
-• Low:     GH₵${data.estimate.low.toLocaleString()}
-• Average: GH₵${data.estimate.average.toLocaleString()}
-• High:    GH₵${data.estimate.high.toLocaleString()}
+Estimated Monthly Rent:
+- Low:     GH₵${data.estimate.low.toLocaleString()}
+- Average: GH₵${data.estimate.average.toLocaleString()}
+- High:    GH₵${data.estimate.high.toLocaleString()}
 
-📊 Confidence: ${data.estimate.confidence.charAt(0).toUpperCase() + data.estimate.confidence.slice(1)}
-📈 Based on ${data.estimate.count} similar listings
+Confidence: ${data.estimate.confidence.charAt(0).toUpperCase() + data.estimate.confidence.slice(1)}
+Based on ${data.estimate.count} similar listings
 
 Generated: ${new Date().toLocaleDateString()}
 Visit: AccraRentals.com for more insights

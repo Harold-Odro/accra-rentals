@@ -1,5 +1,11 @@
 // lib/data.ts
 import rentalData from '@/public/meqasa_data.json'
+import {
+  CONFIDENCE_HIGH_THRESHOLD,
+  CONFIDENCE_MEDIUM_THRESHOLD,
+  PRICE_LOW_MULTIPLIER,
+  PRICE_HIGH_MULTIPLIER
+} from './utils'
 
 export interface Listing {
   title: string;
@@ -103,6 +109,13 @@ export interface LocationStats {
   priceByBedroom: Record<number, number>;
 }
 
+// Determine confidence level based on sample size
+function getConfidenceLevel(count: number): 'high' | 'medium' | 'low' {
+  if (count >= CONFIDENCE_HIGH_THRESHOLD) return 'high'
+  if (count >= CONFIDENCE_MEDIUM_THRESHOLD) return 'medium'
+  return 'low'
+}
+
 // Load rental data from scraped JSON
 export function getListings(): Listing[] {
   return rentalData.listings;
@@ -113,12 +126,17 @@ export function estimatePrice(
   bedrooms: number,
   listings: Listing[]
 ): PriceEstimate | null {
+  // Normalize the search location
+  const normalizedSearchLocation = normalizeLocation(location);
+
   // Filter listings by location and bedrooms (exact match)
   const filtered = listings.filter(
-    (l) =>
-      l.location.toLowerCase() === location.toLowerCase() &&
-      l.bedrooms === bedrooms &&
-      l.price > 0
+    (l) => {
+      const normalizedListingLocation = normalizeLocation(l.location);
+      return normalizedListingLocation.toLowerCase() === normalizedSearchLocation.toLowerCase() &&
+        l.bedrooms === bedrooms &&
+        l.price > 0;
+    }
   );
 
   // If we have exact matches (location + bedrooms), use them
@@ -126,7 +144,7 @@ export function estimatePrice(
     const prices = filtered.map((l) => l.price).sort((a, b) => a - b);
     const sum = prices.reduce((a, b) => a + b, 0);
     const avg = sum / prices.length;
-    
+
     // Use actual min/max for range
     const low = prices[0]; // Minimum price
     const high = prices[prices.length - 1]; // Maximum price
@@ -136,13 +154,16 @@ export function estimatePrice(
       average: Math.round(avg),
       high: Math.round(high),
       count: filtered.length,
-      confidence: filtered.length >= 10 ? 'high' : filtered.length >= 5 ? 'medium' : 'low',
+      confidence: getConfidenceLevel(filtered.length),
     };
   }
 
   // Fallback: Try location only (when no exact bedroom match)
   const locationOnly = listings.filter(
-    (l) => l.location.toLowerCase() === location.toLowerCase() && l.price > 0
+    (l) => {
+      const normalizedListingLocation = normalizeLocation(l.location);
+      return normalizedListingLocation.toLowerCase() === normalizedSearchLocation.toLowerCase() && l.price > 0;
+    }
   );
 
   if (locationOnly.length === 0) return null;
@@ -156,9 +177,9 @@ export function estimatePrice(
     const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
 
     return {
-      low: Math.round(avg * 0.8),
+      low: Math.round(avg * PRICE_LOW_MULTIPLIER),
       average: Math.round(avg),
-      high: Math.round(avg * 1.2),
+      high: Math.round(avg * PRICE_HIGH_MULTIPLIER),
       count: locationOnly.length,
       confidence: 'low',
     };
@@ -194,9 +215,9 @@ export function estimatePrice(
     const percentile90 = sameBedPrices[Math.floor(sameBedPrices.length * 0.9)] || sameBedPrices[sameBedPrices.length - 1];
 
     return {
-      low: Math.round(Math.min(percentile10 * locationPremium, estimatedPrice * 0.85)),
+      low: Math.round(Math.min(percentile10 * locationPremium, estimatedPrice * PRICE_LOW_MULTIPLIER)),
       average: Math.round(estimatedPrice),
-      high: Math.round(Math.max(percentile90 * locationPremium, estimatedPrice * 1.15)),
+      high: Math.round(Math.max(percentile90 * locationPremium, estimatedPrice * PRICE_HIGH_MULTIPLIER)),
       count: sameBedAllLocations.length,
       confidence: 'low', // Always low confidence for estimates
     };
@@ -209,9 +230,9 @@ export function estimatePrice(
   const estimatedPrice = pricePerBedroom * bedrooms;
 
   return {
-    low: Math.round(estimatedPrice * 0.8),
+    low: Math.round(estimatedPrice * PRICE_LOW_MULTIPLIER),
     average: Math.round(estimatedPrice),
-    high: Math.round(estimatedPrice * 1.2),
+    high: Math.round(estimatedPrice * PRICE_HIGH_MULTIPLIER),
     count: withBedrooms.length,
     confidence: 'low', // Always low confidence for estimates
   };
@@ -220,12 +241,13 @@ export function estimatePrice(
 export function getLocationStats(listings: Listing[]): LocationStats[] {
   const locationMap = new Map<string, Listing[]>();
 
-  // Group by location
+  // Group by normalized location
   listings.forEach((listing) => {
-    if (!locationMap.has(listing.location)) {
-      locationMap.set(listing.location, []);
+    const normalizedLocation = normalizeLocation(listing.location);
+    if (!locationMap.has(normalizedLocation)) {
+      locationMap.set(normalizedLocation, []);
     }
-    locationMap.get(listing.location)!.push(listing);
+    locationMap.get(normalizedLocation)!.push(listing);
   });
 
   // Calculate stats for each location
@@ -239,7 +261,7 @@ export function getLocationStats(listings: Listing[]): LocationStats[] {
         const bedroomPrices = items
           .filter((l) => l.bedrooms === bedCount)
           .map((l) => l.price);
-        
+
         if (bedroomPrices.length > 0) {
           priceByBedroom[bedCount] =
             bedroomPrices.reduce((a, b) => a + b, 0) / bedroomPrices.length;
@@ -259,7 +281,8 @@ export function getLocationStats(listings: Listing[]): LocationStats[] {
 }
 
 export function getUniqueLocations(listings: Listing[]): string[] {
-  return Array.from(new Set(listings.map((l) => l.location))).sort();
+  const normalized = listings.map((l) => normalizeLocation(l.location));
+  return Array.from(new Set(normalized)).sort();
 }
 
 export function getBedroomDistribution(listings: Listing[]): Record<number, number> {

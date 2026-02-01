@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "note": "GitHub integration for PR management, code reviews, issues"
+    }
+  },
+  "disabled": ["github"],
+  "notes": {
+    "_readme": "MCP Server configuration for accra-rentals project",
+    "_docs": "See https://code.claude.com/docs/en/mcp.md for configuration options",
+    "available_servers": {
+      "stripe": "claude mcp add --transport http stripe https://mcp.stripe.com",
+      "sentry": "claude mcp add --transport http sentry https://mcp.sentry.dev/mcp",
+      "slack": "claude mcp add --transport http slack https://mcp.slack.com (requires OAuth)",
+      "notion": "claude mcp add --transport http notion https://mcp.notion.com",
+      "postgres": "claude mcp add --transport stdio postgres -- npx -y @bytebase/dbhub --dsn 'postgresql://user:pass@host:5432/db'"
+    }
+  }
+}

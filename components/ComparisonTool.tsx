@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { MapPin, Home, Plus, X, ArrowRight, Scale } from 'lucide-react'
 import { getListings, getUniqueLocations, estimatePrice, type Listing } from '@/lib/data'
+import { formatPrice, generateId } from '@/lib/utils'
 
 interface ComparisonItem {
   id: string
@@ -21,8 +22,8 @@ export default function ComparisonTool() {
   const [locations, setLocations] = useState<string[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [comparisons, setComparisons] = useState<ComparisonItem[]>([
-    { id: '1', location: '', bedrooms: 2, estimate: null },
-    { id: '2', location: '', bedrooms: 2, estimate: null }
+    { id: generateId(), location: '', bedrooms: 2, estimate: null },
+    { id: generateId(), location: '', bedrooms: 2, estimate: null }
   ])
 
   useEffect(() => {
@@ -56,17 +57,13 @@ export default function ComparisonTool() {
     if (comparisons.length >= 4) return
     setComparisons(prev => [
       ...prev,
-      { id: Date.now().toString(), location: '', bedrooms: 2, estimate: null }
+      { id: generateId(), location: '', bedrooms: 2, estimate: null }
     ])
   }
 
   const removeComparison = (id: string) => {
     if (comparisons.length <= 2) return
     setComparisons(prev => prev.filter(item => item.id !== id))
-  }
-
-  const formatPrice = (price: number) => {
-    return `GH₵${price.toLocaleString()}`
   }
 
   const getLowestPrice = () => {

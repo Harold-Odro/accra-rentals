@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { getListings, getLocationStats } from '@/lib/data'
+import { formatPrice } from '@/lib/utils'
 
 interface LocationData {
   location: string
@@ -32,6 +33,7 @@ export default function MarketOverview() {
     avgBedrooms: 0
   })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     try {
@@ -87,8 +89,12 @@ export default function MarketOverview() {
       })
 
       setLoading(false)
-    } catch (error) {
-      console.error('Error loading market data:', error)
+    } catch (err) {
+      // In development, log the error for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading market data:', err)
+      }
+      setError('Failed to load market data. Please try refreshing the page.')
       setLoading(false)
     }
   }, [])
@@ -102,6 +108,18 @@ export default function MarketOverview() {
             <p className="text-neutral-600">Loading market data...</p>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-3xl bg-white p-12 shadow-lg shadow-neutral-900/5 border border-neutral-200 text-center">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h3 className="text-2xl font-display font-bold text-neutral-900 mb-2">
+          Error Loading Data
+        </h3>
+        <p className="text-neutral-600 mb-6">{error}</p>
       </div>
     )
   }
@@ -130,7 +148,7 @@ export default function MarketOverview() {
         <div className="rounded-2xl bg-white p-6 shadow-lg shadow-neutral-900/5 border border-neutral-200 animate-scale-in">
           <div className="text-sm font-medium text-neutral-600 mb-2">Avg. Rent</div>
           <div className="text-3xl font-display font-bold text-neutral-900 mb-1">
-            GH₵{stats.avgRent.toLocaleString()}
+            {formatPrice(stats.avgRent)}
           </div>
           <div className="text-sm text-green-600">per month</div>
         </div>
@@ -185,7 +203,7 @@ export default function MarketOverview() {
                   borderRadius: '8px',
                   padding: '12px'
                 }}
-                formatter={(value: number) => [`GH₵${value.toLocaleString()}/month`, 'Avg. Rent']}
+                formatter={(value: number) => [`${formatPrice(value)}/month`, 'Avg. Rent']}
               />
               <Bar dataKey="avgPrice" fill="#ef4444" radius={[8, 8, 0, 0]} />
             </BarChart>
@@ -215,7 +233,7 @@ export default function MarketOverview() {
                   borderRadius: '8px',
                   padding: '12px'
                 }}
-                formatter={(value: number) => [`GH₵${value.toLocaleString()}/month`, 'Avg. Rent']}
+                formatter={(value: number) => [`${formatPrice(value)}/month`, 'Avg. Rent']}
               />
               <Bar dataKey="avgPrice" fill="#22c55e" radius={[0, 8, 8, 0]} />
             </BarChart>
@@ -272,7 +290,7 @@ export default function MarketOverview() {
                 <div className="text-right">
                   <div className="text-sm text-neutral-600">Avg. Rent</div>
                   <div className="text-lg font-bold text-green-600">
-                    GH₵{affordableAreas[0]?.avgPrice.toLocaleString() || 0}/mo
+                    {affordableAreas[0] ? `${formatPrice(affordableAreas[0].avgPrice)}/mo` : 'N/A'}
                   </div>
                 </div>
               </div>
@@ -304,7 +322,9 @@ export default function MarketOverview() {
                 <div className="text-right">
                   <div className="text-sm text-neutral-600">Low - High</div>
                   <div className="text-lg font-bold text-primary-600">
-                    GH₵{affordableAreas[affordableAreas.length - 1]?.avgPrice.toLocaleString() || 0} - GH₵{locationData[0]?.avgPrice.toLocaleString() || 0}
+                    {affordableAreas[affordableAreas.length - 1] && locationData[0]
+                      ? `${formatPrice(affordableAreas[affordableAreas.length - 1].avgPrice)} - ${formatPrice(locationData[0].avgPrice)}`
+                      : 'N/A'}
                   </div>
                 </div>
               </div>
@@ -345,9 +365,9 @@ export default function MarketOverview() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {locationData.map((loc, i) => (
-                <tr key={i} className="hover:bg-neutral-50 transition-colors">
+                <tr key={loc.location} className="hover:bg-neutral-50 transition-colors">
                   <td className="py-4 text-sm font-medium text-neutral-900">{loc.location}</td>
-                  <td className="py-4 text-right text-sm text-neutral-600">GH₵{loc.avgPrice.toLocaleString()}/mo</td>
+                  <td className="py-4 text-right text-sm text-neutral-600">{formatPrice(loc.avgPrice)}/mo</td>
                   <td className="py-4 text-right text-sm text-neutral-600">{loc.count}</td>
                   <td className="py-4 text-right">
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
